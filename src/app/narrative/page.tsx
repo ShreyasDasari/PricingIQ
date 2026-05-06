@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCompletion } from "ai/react";
+import { useCompletion } from "@ai-sdk/react";
 import { deals, getWaterfallData, type Product, type Segment, type Region } from "@/data/deals";
 import { fmtPct, fmtDollar } from "@/lib/utils";
 import { useMemo } from "react";
@@ -24,6 +24,7 @@ export default function NarrativePage() {
 
   const { completion, complete, isLoading, error } = useCompletion({
     api: "/api/narrative",
+    streamProtocol: "text",
   });
 
   const handleGenerate = () => {
@@ -36,7 +37,7 @@ export default function NarrativePage() {
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">AI Executive Narrative</h1>
-        <p className="text-slate-500 mt-1">Claude generates a board-ready pipeline summary from live deal data</p>
+        <p className="text-slate-500 mt-1">Gemini generates a board-ready pipeline summary from live deal data</p>
       </div>
 
       {/* Filters */}
@@ -116,7 +117,7 @@ export default function NarrativePage() {
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-          <strong>Error:</strong> {error.message}. Make sure <code className="bg-red-100 px-1 rounded">ANTHROPIC_API_KEY</code> is set in your environment.
+          <strong>Error:</strong> {error.message}. Make sure <code className="bg-red-100 px-1 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> is set in your environment.
         </div>
       )}
 
@@ -124,7 +125,7 @@ export default function NarrativePage() {
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-10 text-center text-slate-400">
           <p className="text-4xl mb-3">✦</p>
           <p className="text-sm">Select a filter scope and click <strong>Generate Executive Narrative</strong></p>
-          <p className="text-xs mt-1">Claude will analyze the filtered deal book and produce a 4-sentence executive summary</p>
+          <p className="text-xs mt-1">Gemini will analyze the filtered deal book and produce a 4-sentence executive summary</p>
         </div>
       )}
     </div>

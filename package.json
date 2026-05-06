@@ -9,13 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.79",
+    "@ai-sdk/google": "^2.0.72",
+    "@ai-sdk/react": "^3.0.177",
+    "ai": "^5.0.185",
+    "clsx": "^2.1.1",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.13.3",
-    "ai": "^4.1.0",
-    "@ai-sdk/anthropic": "^1.1.0",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
