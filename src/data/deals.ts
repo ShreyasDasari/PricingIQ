@@ -1,4 +1,8 @@
-export type Product = "Creo" | "Windchill" | "ThingWorx";
+// Fix 1: ThingWorx divested in early 2026 — replaced with Service (SLM portfolio)
+// Fix 2: Creo floor raised to $25K (no hobbyist seats in enterprise pricing)
+// Fix 3: Discount cap lowered to 0.55 (industry max; 0.72 was unrealistic)
+// Fix 4: Segment-aware realization noise (Enterprise upsell, SMB leakage risk)
+export type Product = "Creo" | "Windchill" | "Service";
 export type Segment = "Enterprise" | "Mid-Market" | "SMB" | "Partner";
 export type Region = "Americas" | "EMEA" | "APAC";
 export type RiskLevel = "High" | "Medium" | "Low";
@@ -56,22 +60,22 @@ const reps = [
   "Carlos Rivera", "Elena Volkov", "Ben Adeyemi", "Suki Tanaka", "Paul Mbeki",
 ];
 
-const PRODUCTS: Product[] = ["Creo", "Windchill", "ThingWorx"];
+const PRODUCTS: Product[] = ["Creo", "Windchill", "Service"];
 const SEGMENTS: Segment[] = ["Enterprise", "Mid-Market", "SMB", "Partner"];
 const REGIONS: Region[] = ["Americas", "EMEA", "APAC"];
 const QUARTERS: Quarter[] = ["Q1", "Q2", "Q3", "Q4"];
 
 const LIST_PRICE_RANGE: Record<Product, [number, number]> = {
-  Creo: [10000, 500000],
-  Windchill: [50000, 2000000],
-  ThingWorx: [25000, 1000000],
+  Creo:      [25000,  500000],   // Fix 2: floor raised from $10K → $25K
+  Windchill: [75000, 2000000],   // Fix 2: floor raised from $50K → $75K
+  Service:   [30000,  800000],   // Replaces ThingWorx
 };
 
 const BASE_VOLUME_DISCOUNT: Record<Segment, [number, number]> = {
-  Enterprise: [0.05, 0.2],
+  Enterprise:   [0.05, 0.2],
   "Mid-Market": [0.03, 0.12],
-  SMB: [0, 0.06],
-  Partner: [0.08, 0.18],
+  SMB:          [0,    0.06],
+  Partner:      [0.08, 0.18],
 };
 
 function generateDeals(): Deal[] {
@@ -93,26 +97,31 @@ function generateDeals(): Deal[] {
     const promoDiscount = range(rng, 0, 0.12);
     const partnerDiscount = segment === "Partner" ? range(rng, 0.05, 0.15) : range(rng, 0, 0.08);
 
-    const totalDiscountRate = Math.min(volumeDiscount + promoDiscount + partnerDiscount, 0.72);
+    // Fix 3: hard cap at 0.55 (was 0.72 — unrealistic for enterprise pricing governance)
+    const totalDiscountRate = Math.min(volumeDiscount + promoDiscount + partnerDiscount, 0.55);
     const netPrice = Math.round(listPrice * (1 - totalDiscountRate));
 
-    const realizationNoise = range(rng, -0.03, 0.01);
+    // Fix 4: segment-aware realization noise
+    const realizationNoise =
+      segment === "Enterprise" ? range(rng, -0.05, 0.08) :  // upsell / expansion potential
+      segment === "SMB"        ? range(rng, -0.12, 0.02) :  // higher churn / leakage risk
+                                 range(rng, -0.07, 0.04);   // Mid-Market / Partner: moderate
     const realizedRevenue = Math.round(netPrice * (1 + realizationNoise));
 
     const daysInPipeline = Math.round(range(rng, 1, 180));
     const closeRate = Math.max(0.05, 1 - totalDiscountRate * 0.8 - daysInPipeline / 400);
 
-    // Scoring (0-1, higher = more risk)
-    const normalizedDiscount = totalDiscountRate / 0.72;
+    // Scoring normalized against the updated 0.55 cap
+    const normalizedDiscount = totalDiscountRate / 0.55;
     const normalizedSize = (listPrice - lpMin) / (lpMax - lpMin);
     const normalizedPipeline = daysInPipeline / 180;
     const normalizedClose = 1 - closeRate;
 
     const riskScore =
       normalizedDiscount * 0.4 +
-      normalizedSize * 0.2 +
+      normalizedSize     * 0.2 +
       normalizedPipeline * 0.2 +
-      normalizedClose * 0.2;
+      normalizedClose    * 0.2;
 
     const riskLevel: RiskLevel =
       riskScore > 0.6 ? "High" : riskScore > 0.35 ? "Medium" : "Low";
@@ -140,10 +149,10 @@ function generateDeals(): Deal[] {
       corridorStatus,
       rep,
       shapFactors: {
-        discount: normalizedDiscount * 0.4,
-        dealSize: normalizedSize * 0.2,
-        pipeline: normalizedPipeline * 0.2,
-        closeRate: normalizedClose * 0.2,
+        discount:  normalizedDiscount * 0.4,
+        dealSize:  normalizedSize     * 0.2,
+        pipeline:  normalizedPipeline * 0.2,
+        closeRate: normalizedClose    * 0.2,
       },
     });
   }
@@ -154,33 +163,32 @@ function generateDeals(): Deal[] {
 export const deals = generateDeals();
 
 export function getWaterfallData(filtered: Deal[]) {
-  const totalList = filtered.reduce((s, d) => s + d.listPrice, 0);
-  const totalVolume = filtered.reduce((s, d) => s + d.listPrice * d.volumeDiscount, 0);
-  const totalPromo = filtered.reduce((s, d) => s + d.listPrice * d.promoDiscount, 0);
+  const totalList    = filtered.reduce((s, d) => s + d.listPrice, 0);
+  const totalVolume  = filtered.reduce((s, d) => s + d.listPrice * d.volumeDiscount, 0);
+  const totalPromo   = filtered.reduce((s, d) => s + d.listPrice * d.promoDiscount, 0);
   const totalPartner = filtered.reduce((s, d) => s + d.listPrice * d.partnerDiscount, 0);
-  const totalNet = filtered.reduce((s, d) => s + d.netPrice, 0);
+  const totalNet     = filtered.reduce((s, d) => s + d.netPrice, 0);
   const totalRealized = filtered.reduce((s, d) => s + d.realizedRevenue, 0);
-  const realization = totalNet - totalRealized;
+  const realization  = totalNet - totalRealized;
 
   const m = 1_000_000;
   return {
     bars: [
-      { name: "List Price", value: totalList / m, base: 0, fill: "#3b82f6", type: "start" },
-      { name: "Volume Disc.", value: -totalVolume / m, base: totalList / m, fill: "#ef4444", type: "decrease" },
-      { name: "Promo Disc.", value: -totalPromo / m, base: (totalList - totalVolume) / m, fill: "#f97316", type: "decrease" },
-      { name: "Partner Disc.", value: -totalPartner / m, base: (totalList - totalVolume - totalPromo) / m, fill: "#eab308", type: "decrease" },
-      { name: "Net Price", value: totalNet / m, base: 0, fill: "#8b5cf6", type: "subtotal" },
-      { name: "Rev. Leakage", value: -realization / m, base: totalNet / m, fill: "#ec4899", type: "decrease" },
-      { name: "Realized Rev.", value: totalRealized / m, base: 0, fill: "#22c55e", type: "end" },
+      { name: "List Price",   value: totalList / m,                                         base: 0,                                                   fill: "#3b82f6", type: "start"    },
+      { name: "Volume Disc.", value: -totalVolume / m,                                       base: totalList / m,                                       fill: "#ef4444", type: "decrease" },
+      { name: "Promo Disc.",  value: -totalPromo / m,                                        base: (totalList - totalVolume) / m,                       fill: "#f97316", type: "decrease" },
+      { name: "Partner Disc.",value: -totalPartner / m,                                      base: (totalList - totalVolume - totalPromo) / m,          fill: "#eab308", type: "decrease" },
+      { name: "Net Price",    value: totalNet / m,                                           base: 0,                                                   fill: "#8b5cf6", type: "subtotal" },
+      { name: "Rev. Leakage", value: -realization / m,                                       base: totalNet / m,                                        fill: "#ec4899", type: "decrease" },
+      { name: "Realized Rev.",value: totalRealized / m,                                      base: 0,                                                   fill: "#22c55e", type: "end"      },
     ],
     summary: {
-      totalList: totalList / m,
-      totalNet: totalNet / m,
-      totalRealized: totalRealized / m,
+      totalList:      totalList / m,
+      totalNet:       totalNet / m,
+      totalRealized:  totalRealized / m,
       totalDiscounts: (totalVolume + totalPromo + totalPartner) / m,
-      avgDiscountRate:
-        filtered.reduce((s, d) => s + d.totalDiscountRate, 0) / filtered.length,
-      realizationRate: totalRealized / totalNet,
+      avgDiscountRate:   filtered.reduce((s, d) => s + d.totalDiscountRate, 0) / filtered.length,
+      realizationRate:   totalRealized / totalNet,
       corridorViolations: filtered.filter((d) => d.corridorStatus === "red").length,
     },
   };

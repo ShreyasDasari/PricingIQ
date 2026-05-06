@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { deals } from "@/data/deals";
-import { fmtPct, fmtDollar } from "@/lib/utils";
+import { fmtPct, fmt } from "@/lib/utils";
 
 interface AlertRule {
   id: string;
@@ -21,7 +21,7 @@ const RULES: AlertRule[] = [
   {
     id: "discount_ceiling",
     label: "Discount Ceiling",
-    description: "Flag deals where total discount exceeds this threshold",
+    description: "Flag deals where total discount exceeds threshold",
     threshold: 35,
     unit: "%",
     min: 10,
@@ -33,7 +33,7 @@ const RULES: AlertRule[] = [
   {
     id: "realization_floor",
     label: "Realization Rate Floor",
-    description: "Flag deals where realized revenue falls below this % of net price",
+    description: "Flag deals where realized revenue falls below % of net price",
     threshold: 95,
     unit: "%",
     min: 80,
@@ -45,7 +45,7 @@ const RULES: AlertRule[] = [
   {
     id: "pipeline_age",
     label: "Pipeline Age Limit",
-    description: "Flag deals stuck in pipeline longer than this many days",
+    description: "Flag deals stuck longer than threshold days",
     threshold: 90,
     unit: "days",
     min: 30,
@@ -56,8 +56,8 @@ const RULES: AlertRule[] = [
   },
   {
     id: "deal_size",
-    label: "Large Deal Threshold",
-    description: "Flag high-discount deals above this list price (requires extra approval)",
+    label: "Large Deal Approval",
+    description: "Flag high-discount deals above list price threshold",
     threshold: 500,
     unit: "$K",
     min: 100,
@@ -79,10 +79,7 @@ export default function AlertsPage() {
 
   const alertsByRule = useMemo(() =>
     Object.fromEntries(
-      RULES.map((rule) => [
-        rule.id,
-        deals.filter((d) => rule.check(d, thresholds[rule.id])),
-      ])
+      RULES.map((rule) => [rule.id, deals.filter((d) => rule.check(d, thresholds[rule.id]))])
     ),
     [thresholds]
   );
@@ -91,128 +88,149 @@ export default function AlertsPage() {
   const activeRuleDef = RULES.find((r) => r.id === activeRule)!;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Intelligent Alerts</h1>
-        <p className="text-slate-500 mt-1">Threshold-based monitoring · Configure rules and review breaches in real time</p>
+    <div className="p-6 max-w-[1300px] mx-auto space-y-5">
+      {/* Header */}
+      <div className="border-b border-slate-200 pb-4">
+        <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Module 4</p>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-0.5">Intelligent Alerts</h1>
+        <p className="text-[12px] text-slate-500 mt-0.5">Threshold-based monitoring · Adjust rules and review breaches in real time</p>
       </div>
 
-      {/* Alert cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Rule selector cards */}
+      <div className="grid grid-cols-4 gap-3">
         {RULES.map((rule) => {
           const count = alertsByRule[rule.id]?.length ?? 0;
           const isActive = rule.id === activeRule;
+          const isCritical = rule.severity === "critical";
           return (
             <button
               key={rule.id}
               onClick={() => setActiveRule(rule.id)}
-              className={`text-left rounded-xl border p-4 transition-all ${
+              className={`text-left border p-4 transition-all duration-150 border-l-4 hover:shadow-sm ${
                 isActive
-                  ? rule.severity === "critical"
-                    ? "border-red-400 bg-red-50 shadow-md"
-                    : "border-amber-400 bg-amber-50 shadow-md"
-                  : "border-slate-200 bg-white hover:border-slate-300"
+                  ? isCritical
+                    ? "border-red-600 border-l-red-600 bg-red-50"
+                    : "border-amber-500 border-l-amber-500 bg-amber-50"
+                  : "border-slate-200 border-l-slate-300 bg-white hover:border-slate-300"
               }`}
             >
               <div className="flex items-start justify-between mb-2">
-                <span className={`text-lg ${rule.severity === "critical" ? "text-red-500" : "text-amber-500"}`}>
-                  {rule.severity === "critical" ? "🔴" : "🟡"}
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${isCritical ? "text-red-600" : "text-amber-600"}`}>
+                  {isCritical ? "● CRITICAL" : "◆ WARNING"}
                 </span>
-                <span className={`text-2xl font-bold ${count > 0 ? (rule.severity === "critical" ? "text-red-600" : "text-amber-600") : "text-slate-400"}`}>
+                <span className={`text-2xl font-black tabular-nums leading-none ${count > 0 ? (isCritical ? "text-red-600" : "text-amber-600") : "text-slate-300"}`}>
                   {count}
                 </span>
               </div>
-              <p className="text-sm font-semibold text-slate-800">{rule.label}</p>
-              <p className="text-xs text-slate-500 mt-0.5">@ {thresholds[rule.id]}{rule.unit}</p>
+              <p className="text-[12px] font-bold text-slate-800">{rule.label}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">@ {thresholds[rule.id]}{rule.unit}</p>
             </button>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-12 gap-4">
         {/* Threshold controls */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="text-base font-semibold text-slate-800 mb-4">Threshold Configuration</h2>
-          <div className="space-y-6">
-            {RULES.map((rule) => (
-              <div key={rule.id}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium text-slate-700">{rule.label}</span>
-                  <span className={`font-bold ${rule.severity === "critical" ? "text-red-600" : "text-amber-600"}`}>
-                    {thresholds[rule.id]}{rule.unit}
-                  </span>
+        <div className="col-span-3 bg-white border border-slate-200">
+          <div className="px-4 py-3 border-b border-slate-200">
+            <p className="section-title">Rule Configuration</p>
+          </div>
+          <div className="p-4 space-y-6">
+            {RULES.map((rule) => {
+              const isCritical = rule.severity === "critical";
+              return (
+                <div key={rule.id}>
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-[11px] font-bold text-slate-700">{rule.label}</span>
+                    <span className={`text-[13px] font-black tabular-nums ${isCritical ? "text-red-600" : "text-amber-600"}`}>
+                      {thresholds[rule.id]}{rule.unit}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={rule.min}
+                    max={rule.max}
+                    step={rule.step}
+                    value={thresholds[rule.id]}
+                    onChange={(e) => updateThreshold(rule.id, Number(e.target.value))}
+                    className="w-full h-1 rounded-none appearance-none cursor-pointer bg-slate-200 accent-slate-800"
+                  />
+                  <div className="flex justify-between text-[9px] text-slate-400 mt-0.5 font-medium">
+                    <span>{rule.min}{rule.unit}</span>
+                    <span>{rule.max}{rule.unit}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">{rule.description}</p>
                 </div>
-                <input
-                  type="range"
-                  min={rule.min}
-                  max={rule.max}
-                  step={rule.step}
-                  value={thresholds[rule.id]}
-                  onChange={(e) => updateThreshold(rule.id, Number(e.target.value))}
-                  className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200 accent-blue-600"
-                />
-                <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-                  <span>{rule.min}{rule.unit}</span>
-                  <span>{rule.max}{rule.unit}</span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">{rule.description}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Active alert list */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className={`px-6 py-4 border-b ${activeRuleDef.severity === "critical" ? "bg-red-50 border-red-100" : "bg-amber-50 border-amber-100"}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-800">{activeRuleDef.label} Breaches</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Threshold: {thresholds[activeRule]}{activeRuleDef.unit}</p>
-              </div>
-              <span className={`text-2xl font-bold ${activeRuleDef.severity === "critical" ? "text-red-600" : "text-amber-600"}`}>
-                {activeAlerts.length} breaches
-              </span>
+        {/* Breach list */}
+        <div className="col-span-9 bg-white border border-slate-200">
+          <div className={`flex items-center justify-between px-5 py-3 border-b border-slate-200 ${activeRuleDef.severity === "critical" ? "bg-red-50" : "bg-amber-50"}`}>
+            <div>
+              <p className={`section-title ${activeRuleDef.severity === "critical" ? "text-red-800" : "text-amber-800"}`}>
+                {activeRuleDef.severity === "critical" ? "● " : "◆ "}{activeRuleDef.label} Breaches
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Threshold: {thresholds[activeRule]}{activeRuleDef.unit}</p>
+            </div>
+            <div className="text-right">
+              <p className={`text-3xl font-black tabular-nums leading-none ${activeRuleDef.severity === "critical" ? "text-red-600" : "text-amber-600"}`}>
+                {activeAlerts.length}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">breach{activeAlerts.length !== 1 ? "es" : ""} detected</p>
             </div>
           </div>
 
           {activeAlerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-              <span className="text-4xl mb-2">✓</span>
-              <p className="text-sm font-medium">No breaches at current threshold</p>
-              <p className="text-xs mt-1">Lower the threshold to surface more alerts</p>
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 opacity-30">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-[13px] font-semibold">No breaches at current threshold</p>
+              <p className="text-[11px] mt-1">Adjust the threshold to surface alerts</p>
             </div>
           ) : (
-            <div className="overflow-auto max-h-[440px]">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+            <div className="overflow-auto max-h-[480px]">
+              <table className="ent-table">
+                <thead>
                   <tr>
-                    {["Deal ID", "Product", "Segment", "Rep", "List Price", "Discount", "Net Price", "Days", "Risk"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-slate-600 font-medium whitespace-nowrap">{h}</th>
-                    ))}
+                    <th>Deal ID</th>
+                    <th>Product</th>
+                    <th>Segment</th>
+                    <th>Rep</th>
+                    <th className="num">List Price</th>
+                    <th className="num">Discount</th>
+                    <th className="num">Net Price</th>
+                    <th className="num">Days</th>
+                    <th>Risk</th>
+                    <th>Corridor</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {activeAlerts.slice(0, 100).map((d) => (
-                    <tr key={d.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2.5 font-mono text-slate-500">{d.id}</td>
-                      <td className="px-4 py-2.5 font-medium text-slate-800">{d.product}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{d.segment}</td>
-                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">{d.rep}</td>
-                      <td className="px-4 py-2.5 text-slate-700">{fmtDollar(d.listPrice / 1_000_000)}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`font-semibold ${d.corridorStatus === "red" ? "text-red-600" : d.corridorStatus === "yellow" ? "text-amber-600" : "text-green-600"}`}>
+                <tbody>
+                  {activeAlerts.slice(0, 150).map((d) => (
+                    <tr key={d.id}>
+                      <td className="font-mono text-[11px] text-slate-400">{d.id}</td>
+                      <td className="font-semibold text-slate-900">{d.product}</td>
+                      <td className="text-slate-600">{d.segment}</td>
+                      <td className="text-slate-500 text-[11px]">{d.rep}</td>
+                      <td className="num tabular-nums text-slate-700">${fmt(d.listPrice / 1_000_000)}</td>
+                      <td className="num tabular-nums">
+                        <span className={`font-bold ${d.corridorStatus === "red" ? "text-red-600" : d.corridorStatus === "yellow" ? "text-amber-600" : "text-emerald-600"}`}>
                           {fmtPct(d.totalDiscountRate)}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-slate-700">{fmtDollar(d.netPrice / 1_000_000)}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{d.daysInPipeline}d</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${
-                          d.riskLevel === "High" ? "bg-red-100 text-red-700 border-red-200" :
-                          d.riskLevel === "Medium" ? "bg-amber-100 text-amber-700 border-amber-200" :
-                          "bg-green-100 text-green-700 border-green-200"
-                        }`}>
+                      <td className="num tabular-nums text-slate-700">${fmt(d.netPrice / 1_000_000)}</td>
+                      <td className="num tabular-nums text-slate-500">{d.daysInPipeline}d</td>
+                      <td>
+                        <span className={d.riskLevel === "High" ? "data-badge-red" : d.riskLevel === "Medium" ? "data-badge-amber" : "data-badge-green"}>
                           {d.riskLevel}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={d.corridorStatus === "red" ? "data-badge-red" : d.corridorStatus === "yellow" ? "data-badge-amber" : "data-badge-green"}>
+                          {d.corridorStatus === "red" ? "Breach" : d.corridorStatus === "yellow" ? "Near" : "OK"}
                         </span>
                       </td>
                     </tr>

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const { summary: s } = getWaterfallData(filtered);
   const high = filtered.filter((d) => d.riskLevel === "High");
   const topRisk = high.slice(0, 3);
-  const byProduct = ["Creo", "Windchill", "ThingWorx"].map((p) => {
+  const byProduct = ["Creo", "Windchill", "Service"].map((p) => {
     const sub = filtered.filter((d) => d.product === p);
     if (!sub.length) return null;
     const avgDisc = sub.reduce((acc, d) => acc + d.totalDiscountRate, 0) / sub.length;

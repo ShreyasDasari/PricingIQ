@@ -2,24 +2,50 @@
 
 import { useState, useMemo } from "react";
 import { deals, getWaterfallData, type Product, type Segment, type Region } from "@/data/deals";
-import { fmtDollar, fmtPct } from "@/lib/utils";
+import { fmtPct } from "@/lib/utils";
 import WaterfallChart from "@/components/WaterfallChart";
+import KpiCard from "@/components/KpiCard";
+
+const CHART_COLORS = {
+  start:    "#1E3A5F",
+  decrease1: "#DC2626",
+  decrease2: "#B91C1C",
+  decrease3: "#991B1B",
+  subtotal:  "#374151",
+  leakage:   "#D97706",
+  end:       "#059669",
+};
 
 export default function WaterfallPage() {
   const [product, setProduct] = useState<Product | "All">("All");
   const [segment, setSegment] = useState<Segment | "All">("All");
   const [region, setRegion] = useState<Region | "All">("All");
 
-  const filtered = useMemo(() => {
-    return deals.filter((d) => {
+  const filtered = useMemo(() =>
+    deals.filter((d) => {
       if (product !== "All" && d.product !== product) return false;
       if (segment !== "All" && d.segment !== segment) return false;
       if (region !== "All" && d.region !== region) return false;
       return true;
-    });
-  }, [product, segment, region]);
+    }),
+    [product, segment, region]
+  );
 
-  const { bars, summary: s } = useMemo(() => getWaterfallData(filtered), [filtered]);
+  const { bars: rawBars, summary: s } = useMemo(() => getWaterfallData(filtered), [filtered]);
+
+  // Apply financial color scheme
+  const bars = rawBars.map((b, i) => ({
+    ...b,
+    fill: [
+      CHART_COLORS.start,
+      CHART_COLORS.decrease1,
+      CHART_COLORS.decrease2,
+      CHART_COLORS.decrease3,
+      CHART_COLORS.subtotal,
+      CHART_COLORS.leakage,
+      CHART_COLORS.end,
+    ][i] ?? b.fill,
+  }));
 
   const corridorBreakdown = useMemo(() => ({
     green: filtered.filter((d) => d.corridorStatus === "green").length,
@@ -27,89 +53,136 @@ export default function WaterfallPage() {
     red: filtered.filter((d) => d.corridorStatus === "red").length,
   }), [filtered]);
 
+  const selectCls = "text-[12px] border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500";
+
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Pricing Waterfall Analysis</h1>
-        <p className="text-slate-500 mt-1">Revenue leakage across the discount chain · {filtered.length} deals</p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        {[
-          { label: "Product", value: product, setter: setProduct, options: ["All", "Creo", "Windchill", "ThingWorx"] },
-          { label: "Segment", value: segment, setter: setSegment, options: ["All", "Enterprise", "Mid-Market", "SMB", "Partner"] },
-          { label: "Region", value: region, setter: setRegion, options: ["All", "Americas", "EMEA", "APAC"] },
-        ].map(({ label, value, setter, options }) => (
-          <div key={label} className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 uppercase">{label}</span>
-            <select
-              value={value}
-              onChange={(e) => setter(e.target.value as never)}
-              className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {options.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </div>
-        ))}
-      </div>
-
-      {/* KPI row */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "List Price", value: fmtDollar(s.totalList), color: "text-blue-700" },
-          { label: "Net Price", value: fmtDollar(s.totalNet), color: "text-purple-700" },
-          { label: "Realized Revenue", value: fmtDollar(s.totalRealized), color: "text-green-700" },
-          { label: "Avg Discount", value: fmtPct(s.avgDiscountRate), color: s.avgDiscountRate > 0.35 ? "text-red-600" : "text-amber-600" },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-xs text-slate-500 uppercase font-medium">{label}</p>
-            <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Chart */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
-        <h2 className="text-base font-semibold text-slate-800 mb-4">Revenue Waterfall</h2>
-        <WaterfallChart data={bars} />
-        <div className="mt-4 flex flex-wrap gap-4 justify-center">
+    <div className="p-6 max-w-[1200px] mx-auto space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between border-b border-slate-200 pb-4">
+        <div>
+          <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Module 1</p>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-0.5">Pricing Waterfall Analysis</h1>
+          <p className="text-[12px] text-slate-500 mt-0.5">Revenue leakage decomposition across the discount chain</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
           {[
-            { color: "bg-blue-500", label: "List Price" },
-            { color: "bg-red-500", label: "Volume Discount" },
-            { color: "bg-orange-500", label: "Promo Discount" },
-            { color: "bg-yellow-500", label: "Partner Discount" },
-            { color: "bg-purple-500", label: "Net Price" },
-            { color: "bg-pink-500", label: "Revenue Leakage" },
-            { color: "bg-green-500", label: "Realized Revenue" },
-          ].map(({ color, label }) => (
-            <div key={label} className="flex items-center gap-1.5 text-xs text-slate-600">
-              <div className={`w-3 h-3 rounded-sm ${color}`} />
-              {label}
+            { label: "Product", value: product, setter: setProduct, options: ["All", "Creo", "Windchill", "Service"] },
+            { label: "Segment", value: segment, setter: setSegment, options: ["All", "Enterprise", "Mid-Market", "SMB", "Partner"] },
+            { label: "Region", value: region, setter: setRegion, options: ["All", "Americas", "EMEA", "APAC"] },
+          ].map(({ label, value, setter, options }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+              <select value={value} onChange={(e) => setter(e.target.value as never)} className={selectCls}>
+                {options.map((o) => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-3">
+        <KpiCard
+          label="List Price"
+          value={`$${s.totalList.toFixed(1)}M`}
+          sub={`${filtered.length} deals`}
+          status="neutral"
+        />
+        <KpiCard
+          label="Net Price"
+          value={`$${s.totalNet.toFixed(1)}M`}
+          sub={`$${s.totalDiscounts.toFixed(1)}M discounted`}
+          status="neutral"
+        />
+        <KpiCard
+          label="Realized Revenue"
+          value={`$${s.totalRealized.toFixed(1)}M`}
+          sub={`${fmtPct(s.realizationRate)} realization`}
+          status={s.realizationRate < 0.96 ? "amber" : "green"}
+        />
+        <KpiCard
+          label="Avg Discount Rate"
+          value={fmtPct(s.avgDiscountRate)}
+          sub={`${s.corridorViolations} corridor violations`}
+          status={s.avgDiscountRate > 0.35 ? "red" : s.avgDiscountRate > 0.2 ? "amber" : "green"}
+        />
+      </div>
+
+      {/* Waterfall chart */}
+      <div className="bg-white border border-slate-200">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+          <p className="section-title">Revenue Waterfall</p>
+          <div className="flex items-center gap-4">
+            {[
+              { color: "bg-[#1E3A5F]", label: "List Price" },
+              { color: "bg-red-600", label: "Discounts" },
+              { color: "bg-slate-700", label: "Net Price" },
+              { color: "bg-amber-600", label: "Rev. Leakage" },
+              { color: "bg-emerald-600", label: "Realized" },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <div className={`w-2.5 h-2.5 ${color}`} />
+                <span className="text-[10px] text-slate-500 font-medium">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 py-4">
+          <WaterfallChart data={bars} />
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 grid grid-cols-4 gap-6 text-center">
+          {[
+            { label: "Volume Discounts", val: `$${(filtered.reduce((s, d) => s + d.listPrice * d.volumeDiscount, 0) / 1e6).toFixed(1)}M` },
+            { label: "Promo Discounts", val: `$${(filtered.reduce((s, d) => s + d.listPrice * d.promoDiscount, 0) / 1e6).toFixed(1)}M` },
+            { label: "Partner Discounts", val: `$${(filtered.reduce((s, d) => s + d.listPrice * d.partnerDiscount, 0) / 1e6).toFixed(1)}M` },
+            { label: "Total Leakage", val: `$${s.totalDiscounts.toFixed(1)}M` },
+          ].map(({ label, val }) => (
+            <div key={label}>
+              <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">{label}</p>
+              <p className="text-[15px] font-bold text-red-600 tabular-nums mt-0.5">{val}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Corridor analysis */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h2 className="text-base font-semibold text-slate-800 mb-4">Discount Corridor Analysis</h2>
-        <p className="text-xs text-slate-500 mb-4">Green: 0–20% · Yellow: 21–35% · Red: 36%+</p>
-        <div className="space-y-3">
+      <div className="bg-white border border-slate-200">
+        <div className="px-5 py-3 border-b border-slate-200">
+          <p className="section-title">Discount Corridor Analysis</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Approved bands: Green ≤20% · Yellow 21–35% · Red &gt;35%</p>
+        </div>
+        <div className="p-5 space-y-4">
           {[
-            { label: "Within Corridor (≤20%)", count: corridorBreakdown.green, pct: corridorBreakdown.green / filtered.length, bar: "bg-green-500", text: "text-green-700", badge: "bg-green-100 text-green-700" },
-            { label: "Approaching Limit (21–35%)", count: corridorBreakdown.yellow, pct: corridorBreakdown.yellow / filtered.length, bar: "bg-amber-400", text: "text-amber-700", badge: "bg-amber-100 text-amber-700" },
-            { label: "Outside Corridor (>35%)", count: corridorBreakdown.red, pct: corridorBreakdown.red / filtered.length, bar: "bg-red-500", text: "text-red-700", badge: "bg-red-100 text-red-700" },
-          ].map(({ label, count, pct, bar, badge }) => (
+            {
+              label: "Within Corridor", range: "0–20%", count: corridorBreakdown.green,
+              pct: corridorBreakdown.green / filtered.length,
+              bar: "bg-emerald-500", badge: "data-badge-green", text: "Compliant",
+            },
+            {
+              label: "Approaching Limit", range: "21–35%", count: corridorBreakdown.yellow,
+              pct: corridorBreakdown.yellow / filtered.length,
+              bar: "bg-amber-400", badge: "data-badge-amber", text: "Monitor",
+            },
+            {
+              label: "Outside Corridor", range: ">35%", count: corridorBreakdown.red,
+              pct: corridorBreakdown.red / filtered.length,
+              bar: "bg-red-600", badge: "data-badge-red", text: "Breach",
+            },
+          ].map(({ label, range, count, pct, bar, badge, text }) => (
             <div key={label}>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-700">{label}</span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge}`}>
-                  {count} deals ({fmtPct(pct)})
-                </span>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={badge}>{text}</span>
+                  <span className="text-[12px] font-medium text-slate-700">{label}</span>
+                  <span className="text-[11px] text-slate-400">{range}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] text-slate-500 tabular-nums">{count} deals</span>
+                  <span className="text-[12px] font-bold text-slate-700 tabular-nums w-10 text-right">{fmtPct(pct)}</span>
+                </div>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className={`h-2 rounded-full ${bar}`} style={{ width: `${pct * 100}%` }} />
+              <div className="w-full bg-slate-100 h-1.5">
+                <div className={`h-1.5 ${bar} transition-all duration-300`} style={{ width: `${pct * 100}%` }} />
               </div>
             </div>
           ))}

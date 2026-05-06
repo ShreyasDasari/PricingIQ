@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCompletion } from "@ai-sdk/react";
 import { deals, getWaterfallData, type Product, type Segment, type Region } from "@/data/deals";
-import { fmtPct, fmtDollar } from "@/lib/utils";
-import { useMemo } from "react";
+import { fmtPct } from "@/lib/utils";
+import KpiCard from "@/components/KpiCard";
 
 export default function NarrativePage() {
   const [product, setProduct] = useState<Product | "All">("All");
@@ -21,6 +21,7 @@ export default function NarrativePage() {
     [product, segment, region]
   );
   const { summary: s } = useMemo(() => getWaterfallData(filtered), [filtered]);
+  const high = useMemo(() => filtered.filter((d) => d.riskLevel === "High").length, [filtered]);
 
   const { completion, complete, isLoading, error } = useCompletion({
     api: "/api/narrative",
@@ -28,106 +29,132 @@ export default function NarrativePage() {
   });
 
   const handleGenerate = () => {
-    complete("", {
-      body: { product, segment, region },
-    });
+    complete("", { body: { product, segment, region } });
   };
 
+  const scopeLabel = [product, segment, region].filter((x) => x !== "All").join(" · ") || "All Products · All Segments · All Regions";
+  const selectCls = "text-[12px] border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">AI Executive Narrative</h1>
-        <p className="text-slate-500 mt-1">Gemini generates a board-ready pipeline summary from live deal data</p>
+    <div className="p-6 max-w-[900px] mx-auto space-y-5">
+      {/* Header */}
+      <div className="border-b border-slate-200 pb-4">
+        <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Module 3</p>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-0.5">AI Executive Narrative</h1>
+        <p className="text-[12px] text-slate-500 mt-0.5">Gemini generates a board-ready pipeline summary from live deal data</p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        {[
-          { label: "Product", value: product, setter: setProduct, options: ["All", "Creo", "Windchill", "ThingWorx"] },
-          { label: "Segment", value: segment, setter: setSegment, options: ["All", "Enterprise", "Mid-Market", "SMB", "Partner"] },
-          { label: "Region", value: region, setter: setRegion, options: ["All", "Americas", "EMEA", "APAC"] },
-        ].map(({ label, value, setter, options }) => (
-          <div key={label} className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 uppercase">{label}</span>
-            <select
-              value={value}
-              onChange={(e) => setter(e.target.value as never)}
-              className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {options.map((o) => <option key={o}>{o}</option>)}
-            </select>
+      {/* Filters + action */}
+      <div className="bg-white border border-slate-200 p-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            {[
+              { label: "Product", value: product, setter: setProduct, options: ["All", "Creo", "Windchill", "Service"] },
+              { label: "Segment", value: segment, setter: setSegment, options: ["All", "Enterprise", "Mid-Market", "SMB", "Partner"] },
+              { label: "Region", value: region, setter: setRegion, options: ["All", "Americas", "EMEA", "APAC"] },
+            ].map(({ label, value, setter, options }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+                <select value={value} onChange={(e) => setter(e.target.value as never)} className={selectCls}>
+                  {options.map((o) => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+            ))}
           </div>
-        ))}
+          <button
+            onClick={handleGenerate}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-[12px] font-semibold px-4 py-2 transition-colors duration-150 shrink-0"
+          >
+            {isLoading ? (
+              <>
+                <span className="animate-spin inline-block w-3 h-3 border border-white border-t-transparent rounded-full" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 1L9.5 5.5H14L10.5 8.5L12 13L8 10.5L4 13L5.5 8.5L2 5.5H6.5L8 1Z" />
+                </svg>
+                Generate Narrative
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Live stats snapshot */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: "Deals", value: filtered.length.toString() },
-          { label: "Realized Revenue", value: fmtDollar(s.totalRealized) },
-          { label: "Avg Discount", value: fmtPct(s.avgDiscountRate) },
-          { label: "Corridor Violations", value: s.corridorViolations.toString() },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-slate-100 rounded-lg p-3 text-center">
-            <p className="text-xs text-slate-500 font-medium">{label}</p>
-            <p className="text-xl font-bold text-slate-800 mt-0.5">{value}</p>
-          </div>
-        ))}
+      {/* Snapshot KPIs */}
+      <div className="grid grid-cols-4 gap-3">
+        <KpiCard label="Deals in Scope" value={filtered.length.toString()} status="neutral" />
+        <KpiCard label="Realized Revenue" value={`$${s.totalRealized.toFixed(1)}M`} sub={`${fmtPct(s.realizationRate)} realization`} status="green" />
+        <KpiCard label="Avg Discount" value={fmtPct(s.avgDiscountRate)} status={s.avgDiscountRate > 0.3 ? "red" : s.avgDiscountRate > 0.2 ? "amber" : "green"} />
+        <KpiCard label="High-Risk Deals" value={high.toString()} sub={`${s.corridorViolations} corridor violations`} status={high > 10 ? "red" : high > 5 ? "amber" : "green"} />
       </div>
 
-      {/* Generate button */}
-      <div className="mb-6">
-        <button
-          onClick={handleGenerate}
-          disabled={isLoading}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors"
-        >
-          {isLoading ? (
-            <>
-              <span className="animate-spin text-base">↻</span>
-              Generating narrative…
-            </>
-          ) : (
-            <>
-              <span>✦</span>
-              Generate Executive Narrative
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Output */}
+      {/* Narrative output */}
       {(completion || isLoading) && (
-        <div className="bg-white rounded-xl border border-blue-200 p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-blue-600 font-bold text-sm">✦ AI Executive Summary</span>
-            <span className="text-xs text-slate-400">
-              {product !== "All" && `${product} · `}
-              {segment !== "All" && `${segment} · `}
-              {region !== "All" && `${region} · `}
-              {filtered.length} deals
-            </span>
+        <div className="bg-white border border-slate-200">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-900">
+            <div className="flex items-center gap-2">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="#10B981">
+                <path d="M8 1L9.5 5.5H14L10.5 8.5L12 13L8 10.5L4 13L5.5 8.5L2 5.5H6.5L8 1Z" />
+              </svg>
+              <span className="text-[11px] font-bold text-white uppercase tracking-wider">AI Executive Summary</span>
+            </div>
+            <span className="text-[10px] text-slate-400">{scopeLabel} · {filtered.length} deals</span>
           </div>
-          <p className="text-slate-800 leading-relaxed text-base font-serif">
-            {completion}
-            {isLoading && <span className="animate-pulse text-blue-400 ml-0.5">|</span>}
-          </p>
+          <div className="px-6 py-5">
+            <p className="text-[14px] text-slate-800 leading-relaxed font-serif tracking-tight">
+              {completion}
+              {isLoading && <span className="animate-pulse text-emerald-500 ml-0.5 font-sans">|</span>}
+            </p>
+          </div>
+          {completion && !isLoading && (
+            <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+              <span className="text-[10px] text-slate-400">Generated by Gemini · {new Date().toLocaleTimeString()}</span>
+            </div>
+          )}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-          <strong>Error:</strong> {error.message}. Make sure <code className="bg-red-100 px-1 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> is set in your environment.
+        <div className="border border-red-200 bg-red-50 p-4 text-[12px] text-red-700">
+          <strong>Error:</strong> {error.message}. Ensure <code className="bg-red-100 px-1">GOOGLE_GENERATIVE_AI_API_KEY</code> is set.
         </div>
       )}
 
       {!completion && !isLoading && (
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-10 text-center text-slate-400">
-          <p className="text-4xl mb-3">✦</p>
-          <p className="text-sm">Select a filter scope and click <strong>Generate Executive Narrative</strong></p>
-          <p className="text-xs mt-1">Gemini will analyze the filtered deal book and produce a 4-sentence executive summary</p>
+        <div className="bg-white border border-dashed border-slate-300 p-12 text-center">
+          <div className="flex items-center justify-center mb-3">
+            <svg width="32" height="32" viewBox="0 0 16 16" fill="#CBD5E1">
+              <path d="M8 1L9.5 5.5H14L10.5 8.5L12 13L8 10.5L4 13L5.5 8.5L2 5.5H6.5L8 1Z" />
+            </svg>
+          </div>
+          <p className="text-[13px] font-semibold text-slate-500">No narrative generated</p>
+          <p className="text-[11px] text-slate-400 mt-1">Set filter scope and click <strong>Generate Narrative</strong> to produce an AI executive summary</p>
         </div>
       )}
+
+      {/* How it works */}
+      <div className="bg-white border border-slate-200 p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">How This Works</p>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { step: "01", title: "Filter Scope", desc: "Select product, segment, and region to define the analysis population" },
+            { step: "02", title: "Data Synthesis", desc: "Live deal metrics are aggregated: pipeline, discounts, violations, risk scores" },
+            { step: "03", title: "AI Narration", desc: "Gemini Flash generates a 4-sentence executive brief in McKinsey style" },
+          ].map(({ step, title, desc }) => (
+            <div key={step} className="flex gap-2.5">
+              <span className="text-[11px] font-black text-slate-300 shrink-0 mt-0.5">{step}</span>
+              <div>
+                <p className="text-[11px] font-bold text-slate-700">{title}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
