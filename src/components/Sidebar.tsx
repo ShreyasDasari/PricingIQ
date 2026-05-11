@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   {
-    href: "/",
+    href: "/dashboard",
     label: "Dashboard",
     icon: (
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -56,6 +56,17 @@ const nav = [
         <path d="M8 1L15 14H1L8 1Z" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
         <rect x="7.25" y="6" width="1.5" height="4" rx="0.5" />
         <rect x="7.25" y="11.5" width="1.5" height="1.5" rx="0.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/war-room",
+    label: "War Room",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+        <circle cx="8" cy="8" r="6.5" />
+        <circle cx="8" cy="8" r="2.5" />
+        <path d="M8 1.5V5M8 11v3.5M1.5 8H5M11 8h3.5" strokeLinecap="round" />
       </svg>
     ),
   },

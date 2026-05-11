@@ -99,3 +99,24 @@
 }
 
 .recharts-tooltip-wrapper { z-index: 50; }
+
+/* ─── PTC Brand Tokens (landing / demo pages) ───────────────────────────── */
+:root {
+  --ptc-blue: #007DB8;
+  --ptc-blue-light: #00A9E0;
+  --ptc-dark: #0D1117;
+  --ptc-dark-card: #161B22;
+  --ptc-orange: #F47920;
+  --ptc-white: #FFFFFF;
+  --ptc-gray: #8B9CB6;
+}
+
+@keyframes fadeUpIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ptcLogoReveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0% 0 0); }
+}
